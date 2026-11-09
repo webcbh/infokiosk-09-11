@@ -1,0 +1,49 @@
+# Codemagic (https://codemagic.io) builds a SIGNED iOS app and sends it to TestFlight / the App Store.
+# Needs an Apple Developer account. In Codemagic: Teams > Integrations > App Store Connect, then set
+# the bundle id below. Android can be built here too.
+workflows:
+  ios-release:
+    name: iOS release
+    instance_type: mac_mini_m2
+    max_build_duration: 40
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      flutter: stable
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.cbh.hotelGuideApp
+    scripts:
+      - name: Create platform projects
+        script: |
+          flutter create --org com.cbh --project-name hotel_guide_app --platforms=android,ios .
+          flutter pub get
+          dart run tool/patch_platforms.dart
+          dart run flutter_launcher_icons
+      - name: Set up signing
+        script: xcode-project use-profiles
+      - name: Build ipa
+        script: flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+  android-release:
+    name: Android release
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Build
+        script: |
+          flutter create --org com.cbh --project-name hotel_guide_app --platforms=android,ios .
+          flutter pub get
+          dart run tool/patch_platforms.dart
+          dart run flutter_launcher_icons
+          flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
